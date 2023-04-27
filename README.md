@@ -5,5 +5,5 @@ Azure OpenAI를 이용하여 파이썬 API를 작성하는 예제입니다.
 OPENAI_API_KEY=.........................
 OPENAI_API_BASE=https://<base-url>.openai.azure.com/
 ```
-- pip install
+- pip install 를 이용하여 필요한 package들 설치합니다.
 
