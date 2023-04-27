@@ -10,5 +10,10 @@
             <li>{{ user.name }} ({{ user.age }})</li>
             {% endfor %}
         </ul>
+        <h1>File Upload</h1>
+        <form action="/fileupload/" enctype="multipart/form-data" method="post">
+            <input type="file" name="file">
+            <input type="submit" value="Upload">
+        </form>
     </body>
 </html>

@@ -10,7 +10,7 @@ app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
 @app.post("/fileupload/")
-async def file_upload(file: UploadFile = File(...)):
+async def file_upload(request: Request,file: UploadFile = File(...)):
     # Remove all existing files in the "files" directory
   
     file_path = f"mydata/{file.filename}"
@@ -18,7 +18,7 @@ async def file_upload(file: UploadFile = File(...)):
         os.remove(os.path.join("mydata", filename))
     with open(file_path, "wb") as f:
             f.write(await file.read())
-    return {"filename": file.filename}
+    return templates.TemplateResponse("upload_result.html", {"request": request, "filename": file.filename})
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
