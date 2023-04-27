@@ -6,4 +6,8 @@ OPENAI_API_KEY=.........................
 OPENAI_API_BASE=https://<base-url>.openai.azure.com/
 ```
 - pip install 를 이용하여 필요한 package들 설치합니다.
+- .py 파일을 만든후 아래처럼 실행하면 API 실행됩니다.
+```
+uvicorn <file-name>:app --reload
+```
 
