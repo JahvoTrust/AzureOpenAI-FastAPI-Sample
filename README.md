@@ -14,4 +14,7 @@ pip install uvicorn
 ```
 uvicorn <file-name>:app --reload
 ```
-
+- 브라우저 창에서 아래와 같이 입력하면 API명세를 확인할수 있습니다.
+```
+http://localhost:8000/docs
+```
