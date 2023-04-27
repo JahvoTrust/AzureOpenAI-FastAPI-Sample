@@ -18,3 +18,4 @@ uvicorn <file-name>:app --reload
 ```
 http://localhost:8000/docs
 ```
+![Screenshot that shows the FastAPI Docs](media/docs.png "Overview of the APIs")
