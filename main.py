@@ -21,6 +21,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 app = FastAPI()
 
+
 class Question(BaseModel):
     question: str
 

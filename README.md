@@ -19,3 +19,8 @@ uvicorn <file-name>:app --reload
 http://localhost:8000/docs
 ```
 ![Screenshot that shows the FastAPI Docs](media/docs.png "Overview of the APIs")
+- FastAPI에서는 여러 템플릿 엔진을 지원하며, 가장 인기 있는 것 중 하나는 Jinja2입니다. Jinja2는 Python에서 매우 인기 있는 템플릿 엔진으로, FastAPI에서도 매우 쉽게 사용할 수 있습니다.
+- 먼저, Jinja2를 사용하기 위해 FastAPI에 필요한 패키지를 설치해야 합니다.
+```
+pip install jinja2
+```
