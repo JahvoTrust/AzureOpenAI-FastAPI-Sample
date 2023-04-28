@@ -1,4 +1,4 @@
-from fastapi import FastAPI ,File, UploadFile
+from fastapi import FastAPI ,File, UploadFile , Request
 from pydantic import BaseModel
 from langchain.document_loaders import DirectoryLoader, TextLoader
 from langchain.text_splitter import CharacterTextSplitter
@@ -8,6 +8,8 @@ from langchain.chains import RetrievalQA
 from langchain.llms import AzureOpenAI
 from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
 import os
 import openai
 
@@ -20,6 +22,7 @@ openai.api_base = os.getenv('OPENAI_API_BASE')
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 app = FastAPI()
+templates = Jinja2Templates(directory="templates")
 
 
 class Question(BaseModel):
@@ -48,15 +51,37 @@ def create_qa() -> RetrievalQA:
 
     return qa
 
-@app.get("/")
-def index():
-    return {"name":"Main Data"}
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    context = [
+        {"name": "Alice", "age": 25},
+        {"name": "Bob", "age": 30},
+    ]
+    return templates.TemplateResponse("index.html", {"request": request , "context": context})
+  
+
+@app.post("/fileupload/")
+async def file_upload(request: Request,file: UploadFile = File(...)):
+    # Remove all existing files in the "files" directory
+  
+    file_path = f"mydata/{file.filename}"
+    for filename in os.listdir("mydata"):
+        os.remove(os.path.join("mydata", filename))
+    with open(file_path, "wb") as f:
+            f.write(await file.read())
+    return templates.TemplateResponse("upload_result.html", {"request": request, "filename": file.filename})
 
 @app.post("/qna/")
 def get_qna(question: Question):
     qa = create_qa()
     answer = qa.run(question.question)
     return {"data": answer}
+
+# @app.post("/qna/", response_class=HTMLResponse)
+# async def get_qna(request: Request, question: Question):
+#     qa = create_qa()
+#     answer = qa.run(question.question)
+#     return templates.TemplateResponse("index.html", {"request": request, "answer": answer})
 
 @app.post("/fileupload/")
 async def file_upload(file: UploadFile = File(...)):
