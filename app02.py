@@ -1,10 +1,25 @@
 from fastapi import FastAPI ,File, UploadFile , Request
-from typing import Optional
 from pydantic import BaseModel
-import os
+from langchain.document_loaders import DirectoryLoader, TextLoader
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.embeddings import OpenAIEmbeddings
+from langchain.vectorstores import Chroma   
+from langchain.chains import RetrievalQA
+from langchain.llms import AzureOpenAI
+from langchain.prompts import PromptTemplate
+from dotenv import load_dotenv
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+import os
+import openai
 
+load_dotenv()
+
+# Configure OpenAI API
+openai.api_type = "azure"
+openai.api_version = "2022-12-01"
+openai.api_base = os.getenv('OPENAI_API_BASE')
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
@@ -27,4 +42,36 @@ async def read_root(request: Request):
         {"name": "Bob", "age": 30},
     ]
     return templates.TemplateResponse("index.html", {"request": request , "context": context})
-  
+
+class Question(BaseModel):
+    question: str
+
+def create_qa() -> RetrievalQA:
+    # Create a language model for Q&A
+    llm = AzureOpenAI(deployment_name="text-davinci-003")
+
+    # Create embeddings for text documents
+    embeddings = OpenAIEmbeddings(model="text-embedding-ada-002", chunk_size=1)
+
+    # Load text documents
+    loader = DirectoryLoader('mydata', glob="**/*.txt")
+    documents = loader.load()
+
+    # Split text documents into chunks 중지 시퀀스
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=50)
+    texts = text_splitter.split_documents(documents)
+
+    
+    # Create a vector store for text documents
+    docsearch = Chroma.from_documents(texts, embeddings)
+
+    # Create a retrieval-based Q&A system
+    qa = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=docsearch.as_retriever(search_kwargs={"k": 1}))
+
+    return qa
+
+@app.post("/qna/")
+def get_qna(question: Question):
+    qa = create_qa()
+    answer = qa.run(question.question)
+    return {"data": answer}

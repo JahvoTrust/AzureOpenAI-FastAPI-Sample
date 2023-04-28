@@ -22,6 +22,7 @@ openai.api_base = os.getenv('OPENAI_API_BASE')
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 app = FastAPI()
+
 templates = Jinja2Templates(directory="templates")
 
 
@@ -43,6 +44,7 @@ def create_qa() -> RetrievalQA:
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
     texts = text_splitter.split_documents(documents)
 
+    
     # Create a vector store for text documents
     docsearch = Chroma.from_documents(texts, embeddings)
 
