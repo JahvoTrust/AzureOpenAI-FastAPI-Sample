@@ -33,6 +33,9 @@ async def file_upload(request: Request,file: UploadFile = File(...)):
         os.remove(os.path.join("mydata", filename))
     with open(file_path, "wb") as f:
             f.write(await file.read())
+    
+    global qa_global
+    qa_global = create_qa()
     return templates.TemplateResponse("upload_result.html", {"request": request, "filename": file.filename})
 
 @app.get("/", response_class=HTMLResponse)
@@ -41,7 +44,7 @@ async def read_root(request: Request):
         {"name": "Alice", "age": 25},
         {"name": "Bob", "age": 30},
     ]
-    return templates.TemplateResponse("index.html", {"request": request , "context": context})
+    return templates.TemplateResponse("file_upload.html", {"request": request , "context": context})
 
 class Question(BaseModel):
     question: str
@@ -72,6 +75,6 @@ def create_qa() -> RetrievalQA:
 
 @app.post("/qna/")
 def get_qna(question: Question):
-    qa = create_qa()
+    qa = qa_global
     answer = qa.run(question.question)
     return {"data": answer}
