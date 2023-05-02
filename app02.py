@@ -75,6 +75,6 @@ def create_qa() -> RetrievalQA:
 
 @app.post("/qna/")
 def get_qna(question: Question):
-    qa = qa_global
-    answer = qa.run(question.question)
+    # qa = qa_global
+    answer = qa_global.run(question.question)
     return {"data": answer}
