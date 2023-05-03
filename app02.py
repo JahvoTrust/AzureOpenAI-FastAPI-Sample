@@ -10,8 +10,10 @@ from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from langchain.agents import create_pandas_dataframe_agent
 import os
 import openai
+import pandas as pd
 
 load_dotenv()
 
@@ -37,6 +39,20 @@ async def file_upload(request: Request,file: UploadFile = File(...)):
     global qa_global
     qa_global = create_qa()
     return templates.TemplateResponse("upload_result.html", {"request": request, "filename": file.filename})
+
+@app.post("/fileuploadcsv/")
+async def file_upload(request: Request,file: UploadFile = File(...)):
+    # Remove all existing files in the "files" directory
+  
+    file_path = f"mydata/{file.filename}"
+    for filename in os.listdir("mydata"):
+        os.remove(os.path.join("mydata", filename))
+    with open(file_path, "wb") as f:
+            f.write(await file.read())
+    
+    global csv_global
+    csv_global = create_qa_csv(file.filename)
+    return templates.TemplateResponse("upload_result_csv.html", {"request": request, "filename": file.filename})
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
@@ -73,8 +89,25 @@ def create_qa() -> RetrievalQA:
 
     return qa
 
+def create_qa_csv(filename : str) -> create_pandas_dataframe_agent:
+    # Create a language model for Q&A
+    llm = AzureOpenAI(deployment_name="text-davinci-003")
+    file_path = f"mydata/{filename}"
+    df = pd.read_csv(file_path)
+
+    agent = create_pandas_dataframe_agent(llm, df, verbose=True)
+
+    return agent
+
 @app.post("/qna/")
 def get_qna(question: Question):
     # qa = qa_global
     answer = qa_global.run(question.question)
     return {"data": answer}
+
+@app.post("/qnacsv/")
+def get_qna(question: Question):
+    # qa = qa_global
+    answer = csv_global.run(question.question)
+    return {"data": answer}
+
