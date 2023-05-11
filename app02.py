@@ -14,6 +14,8 @@ from langchain.agents import create_pandas_dataframe_agent
 import os
 import openai
 import pandas as pd
+from helper import AzureBlobStorage
+from langchain.document_loaders import AzureBlobStorageFileLoader
 
 load_dotenv()
 
@@ -30,28 +32,27 @@ templates = Jinja2Templates(directory="templates")
 async def file_upload(request: Request,file: UploadFile = File(...)):
     # Remove all existing files in the "files" directory
   
-    file_path = f"mydata/{file.filename}"
-    for filename in os.listdir("mydata"):
-        os.remove(os.path.join("mydata", filename))
-    with open(file_path, "wb") as f:
-            f.write(await file.read())
+    # file_path = f"mydata/{file.filename}"
+    # for filename in os.listdir("mydata"):
+    #     os.remove(os.path.join("mydata", filename))
+    # with open(file_path, "wb") as f:
+    #         f.write(await file.read())
+    storagehelper = AzureBlobStorage()
+    u_name = await storagehelper.upload_file_to_directory(file.filename,file)
     
     global qa_global
-    qa_global = create_qa()
+    qa_global = create_qa(u_name)
     return templates.TemplateResponse("upload_result.html", {"request": request, "filename": file.filename})
 
 @app.post("/fileuploadcsv/")
 async def file_upload(request: Request,file: UploadFile = File(...)):
     # Remove all existing files in the "files" directory
   
-    file_path = f"mydata/{file.filename}"
-    for filename in os.listdir("mydata"):
-        os.remove(os.path.join("mydata", filename))
-    with open(file_path, "wb") as f:
-            f.write(await file.read())
+    storagehelper = AzureBlobStorage()
+    u_name = await storagehelper.upload_file_to_directory(file.filename,file)
     
     global csv_global
-    csv_global = create_qa_csv(file.filename)
+    csv_global = create_qa_csv(u_name)
     return templates.TemplateResponse("upload_result_csv.html", {"request": request, "filename": file.filename})
 
 @app.get("/", response_class=HTMLResponse)
@@ -65,22 +66,22 @@ async def read_root(request: Request):
 class Question(BaseModel):
     question: str
 
-def create_qa() -> RetrievalQA:
+def create_qa(filename:str) -> RetrievalQA:
     # Create a language model for Q&A
     llm = AzureOpenAI(deployment_name="text-davinci-003")
 
     # Create embeddings for text documents
     embeddings = OpenAIEmbeddings(model="text-embedding-ada-002", chunk_size=1)
 
+    loader = AzureBlobStorageFileLoader(conn_str=os.getenv("AZURE_STORAGE_CONNECTION_STRING"), container='testcontainer', blob_name=filename)
     # Load text documents
-    loader = DirectoryLoader('mydata', glob="**/*.txt")
+    # loader = DirectoryLoader('mydata', glob="**/*.txt")
     documents = loader.load()
 
     # Split text documents into chunks 중지 시퀀스
     text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=50)
     texts = text_splitter.split_documents(documents)
 
-    
     # Create a vector store for text documents
     docsearch = Chroma.from_documents(texts, embeddings)
 
