@@ -15,7 +15,8 @@ import os
 import openai
 import pandas as pd
 from helper import AzureBlobStorage
-from langchain.document_loaders import AzureBlobStorageFileLoader
+from langchain.document_loaders import AzureBlobStorageFileLoader, CSVLoader
+from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
 
 load_dotenv()
 
@@ -93,8 +94,24 @@ def create_qa(filename:str) -> RetrievalQA:
 def create_qa_csv(filename : str) -> create_pandas_dataframe_agent:
     # Create a language model for Q&A
     llm = AzureOpenAI(deployment_name="text-davinci-003")
-    file_path = f"mydata/{filename}"
-    df = pd.read_csv(file_path)
+    # file_path = f"mydata/{filename}"
+    # df = pd.read_csv(file_path)
+
+      # Create a BlobServiceClient object
+    service_client = BlobServiceClient.from_connection_string(conn_str=os.getenv("AZURE_STORAGE_CONNECTION_STRING"))
+    
+    # Create a BlobClient object
+    blob_client = service_client.get_blob_client('testcontainer', filename)
+    
+    with open(filename, "wb") as my_blob:
+        blob_data = blob_client.download_blob()
+        blob_data.readinto(my_blob)
+   
+    # Read the CSV file into a Pandas DataFrame
+    df = pd.read_csv(filename)
+
+    # Use the os.remove() function to delete the file
+    os.remove(filename)
 
     agent = create_pandas_dataframe_agent(llm, df, verbose=True)
 

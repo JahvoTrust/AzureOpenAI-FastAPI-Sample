@@ -72,7 +72,7 @@ class AzureBlobStorage:
             # 파일의 확장자를 가져옵니다.
             file_extension = os.path.splitext(filename)[1]
             u_name = str(uuid.uuid4())
-            u_filename = f'{u_name}.{file_extension}'
+            u_filename = f'{u_name}{file_extension}'
             
             # Create a blob client using the local file name as the name for the blob
             blob_client = blob_service_client.get_blob_client(container=self.containername, blob=u_filename)
