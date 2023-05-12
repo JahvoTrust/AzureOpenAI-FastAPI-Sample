@@ -91,31 +91,42 @@ def create_qa(filename:str) -> RetrievalQA:
 
     return qa
 
-def create_qa_csv(filename : str) -> create_pandas_dataframe_agent:
-    # Create a language model for Q&A
-    llm = AzureOpenAI(deployment_name="text-davinci-003")
-    # file_path = f"mydata/{filename}"
-    # df = pd.read_csv(file_path)
+def create_qa_csv(filename: str) -> create_pandas_dataframe_agent:
 
-      # Create a BlobServiceClient object
-    service_client = BlobServiceClient.from_connection_string(conn_str=os.getenv("AZURE_STORAGE_CONNECTION_STRING"))
-    
-    # Create a BlobClient object
-    blob_client = service_client.get_blob_client('testcontainer', filename)
-    
-    with open(filename, "wb") as my_blob:
-        blob_data = blob_client.download_blob()
-        blob_data.readinto(my_blob)
-   
-    # Read the CSV file into a Pandas DataFrame
-    df = pd.read_csv(filename)
+  """This function creates a language model for Q&A and returns a Pandas DataFrame agent.
 
-    # Use the os.remove() function to delete the file
-    os.remove(filename)
+  Args:
+    filename: The name of the CSV file to read.
 
-    agent = create_pandas_dataframe_agent(llm, df, verbose=True)
+  Returns:
+    A Pandas DataFrame agent.
+  """
 
-    return agent
+  # Create a language model for Q&A
+  llm = AzureOpenAI(deployment_name="text-davinci-003")
+
+  # Create a BlobServiceClient object
+  service_client = BlobServiceClient.from_connection_string(conn_str=os.getenv("AZURE_STORAGE_CONNECTION_STRING"))
+
+  # Create a BlobClient object
+  blob_client = service_client.get_blob_client('testcontainer', filename)
+
+  # Download the CSV file from Azure Blob Storage
+  with open(filename, "wb") as my_blob:
+    blob_data = blob_client.download_blob()
+    blob_data.readinto(my_blob)
+
+  # Read the CSV file into a Pandas DataFrame
+  df = pd.read_csv(filename)
+
+  # Delete the CSV file
+  os.remove(filename)
+
+  # Create a Pandas DataFrame agent
+  agent = create_pandas_dataframe_agent(llm, df, verbose=True)
+
+  return agent
+
 
 @app.post("/qna/")
 def get_qna(question: Question):
