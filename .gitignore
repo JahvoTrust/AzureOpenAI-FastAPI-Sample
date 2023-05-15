@@ -3,3 +3,4 @@ notes.md
 academy/
 mydata/*.*
 .venv/
+.chroma/

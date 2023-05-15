@@ -1,4 +1,4 @@
-from fastapi import FastAPI ,File, UploadFile , Request
+from fastapi import FastAPI ,File, UploadFile , Request, Form
 from pydantic import BaseModel
 from langchain.document_loaders import DirectoryLoader, TextLoader
 from langchain.text_splitter import CharacterTextSplitter
@@ -15,10 +15,16 @@ import os
 import openai
 import pandas as pd
 from helper import AzureBlobStorage
-from langchain.document_loaders import AzureBlobStorageFileLoader, CSVLoader, PyPDFLoader
+from langchain.document_loaders import AzureBlobStorageFileLoader, SeleniumURLLoader, PyPDFLoader
 from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
 
 load_dotenv()
+
+class Question(BaseModel):
+    question: str
+
+class UrlInfo(BaseModel):
+    url: str
 
 # Configure OpenAI API
 openai.api_type = "azure"
@@ -67,16 +73,31 @@ async def file_upload(request: Request,file: UploadFile = File(...)):
     csv_global = create_qa_pdf(u_name)
     return templates.TemplateResponse("upload_result_pdf.html", {"request": request, "filename": file.filename})
 
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
+@app.post("/fileuploadurl/")
+async def urlembedding(request: Request,url: str = Form()):
+    # Remove all existing files in the "files" directory
+    print(url)
+    global csv_global
+    csv_global = create_qa_url(url)
+    return templates.TemplateResponse("upload_result_url.html", {"request": request,"url": url})
+
+@app.get("/files", response_class=HTMLResponse)
+async def read_main(request: Request):
     context = [
         {"name": "Alice", "age": 25},
         {"name": "Bob", "age": 30},
     ]
     return templates.TemplateResponse("file_upload.html", {"request": request , "context": context})
 
-class Question(BaseModel):
-    question: str
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    # context = [
+    #     {"name": "Alice", "age": 25},
+    #     {"name": "Bob", "age": 30},
+    # ]
+    return templates.TemplateResponse("login.html",{"request": request})
+  
+
 
 def create_qa(filename:str) -> RetrievalQA:
     # Create a language model for Q&A
@@ -162,6 +183,28 @@ def create_qa_pdf(filename:str) -> RetrievalQA:
 
     # Delete the CSV file
     os.remove(filename)
+    # Create a vector store for text documents
+    docsearch = Chroma.from_documents(texts, embeddings)
+
+    # Create a retrieval-based Q&A system
+    qa = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=docsearch.as_retriever(search_kwargs={"k": 1}))
+
+    return qa
+  
+def create_qa_url(url:str) -> RetrievalQA:
+    # Create a language model for Q&A
+    llm = AzureOpenAI(deployment_name="text-davinci-003")
+
+    # Create embeddings for text documents
+    embeddings = OpenAIEmbeddings(model="text-embedding-ada-002", chunk_size=1)
+
+    urls = [url]
+    loader = SeleniumURLLoader(urls=urls)
+    data = loader.load()
+    
+    # Split text documents into chunks 중지 시퀀스
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=50)
+    texts = text_splitter.split_documents(data)
     # Create a vector store for text documents
     docsearch = Chroma.from_documents(texts, embeddings)
 
