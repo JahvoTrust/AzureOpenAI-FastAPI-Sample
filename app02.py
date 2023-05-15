@@ -15,7 +15,7 @@ import os
 import openai
 import pandas as pd
 from helper import AzureBlobStorage
-from langchain.document_loaders import AzureBlobStorageFileLoader, CSVLoader
+from langchain.document_loaders import AzureBlobStorageFileLoader, CSVLoader, PyPDFLoader
 from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
 
 load_dotenv()
@@ -55,6 +55,17 @@ async def file_upload(request: Request,file: UploadFile = File(...)):
     global csv_global
     csv_global = create_qa_csv(u_name)
     return templates.TemplateResponse("upload_result_csv.html", {"request": request, "filename": file.filename})
+
+@app.post("/fileuploadpdf/")
+async def file_upload(request: Request,file: UploadFile = File(...)):
+    # Remove all existing files in the "files" directory
+  
+    storagehelper = AzureBlobStorage()
+    u_name = await storagehelper.upload_file_to_directory(file.filename,file)
+    
+    global csv_global
+    csv_global = create_qa_pdf(u_name)
+    return templates.TemplateResponse("upload_result_pdf.html", {"request": request, "filename": file.filename})
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
@@ -127,6 +138,42 @@ def create_qa_csv(filename: str) -> create_pandas_dataframe_agent:
 
   return agent
 
+def create_qa_pdf(filename:str) -> RetrievalQA:
+    # Create a language model for Q&A
+    llm = AzureOpenAI(deployment_name="text-davinci-003")
+
+    # Create embeddings for text documents
+    embeddings = OpenAIEmbeddings(model="text-embedding-ada-002", chunk_size=1)
+
+      # Create a BlobServiceClient object
+    service_client = BlobServiceClient.from_connection_string(conn_str=os.getenv("AZURE_STORAGE_CONNECTION_STRING"))
+    # Load text documents
+    # loader = DirectoryLoader('mydata', glob="**/*.txt")
+  # Create a BlobClient object
+    blob_client = service_client.get_blob_client('testcontainer', filename)
+
+  # Download the CSV file from Azure Blob Storage
+    with open(filename, "wb") as my_blob:
+      blob_data = blob_client.download_blob()
+      blob_data.readinto(my_blob)
+
+    loader = PyPDFLoader(filename)
+    texts = loader.load_and_split()
+
+    # Delete the CSV file
+    os.remove(filename)
+    # Create a vector store for text documents
+    docsearch = Chroma.from_documents(texts, embeddings)
+
+    # Create a retrieval-based Q&A system
+    qa = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=docsearch.as_retriever(search_kwargs={"k": 1}))
+
+    return qa
+
+# from langchain.document_loaders import PyPDFLoader
+
+# loader = PyPDFLoader("example_data/layout-parser-paper.pdf")
+# pages = loader.load_and_split()
 
 @app.post("/qna/")
 def get_qna(question: Question):
@@ -135,6 +182,12 @@ def get_qna(question: Question):
     return {"data": answer}
 
 @app.post("/qnacsv/")
+def get_qna(question: Question):
+    # qa = qa_global
+    answer = csv_global.run(question.question)
+    return {"data": answer}
+
+@app.post("/qnapdf/")
 def get_qna(question: Question):
     # qa = qa_global
     answer = csv_global.run(question.question)
