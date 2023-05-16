@@ -234,5 +234,5 @@ def get_qna(question: Question):
 def get_qna(question: Question):
     # qa = qa_global
     answer = csv_global.run(question.question)
-    return {"data": answer}
+    return {"data": answer, "data_ko":answer}
 
