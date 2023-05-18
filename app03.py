@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+from langchain.embeddings import OpenAIEmbeddings
 from dotenv import load_dotenv
 import os
 import openai
@@ -40,8 +41,9 @@ async def read_root(request: Request):
 
 @app.get("/supabase/{query}")
 async def get_data(query):
-    embeddings = openai.Embedding.create(deployment_id=deployment_id, input=query)
-    embedding = embeddings['data'][0]['embedding']
+    embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
+
+    embedding = embeddings.embed_query(query)
 
     response = supabase.rpc("pg_search", {"query_embedding": embedding, "similarity_threshold": 0.7, "match_count": 3}).execute()
 
@@ -67,8 +69,8 @@ async def insert_data(essay: Essay):
     id = max_id.data[0]['id'] + 1
     content_len = len(essay.content)
 
-    embeddings = openai.Embedding.create(deployment_id=deployment_id, input=essay.content)
-    embedding = embeddings['data'][0]['embedding']
+    embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
+    embedding = embeddings.embed_query(essay.content)
 
     response = supabase.table('pg').insert({"id": id, "essay_title": essay.title, "essay_url": essay.url, "essay_date": essay.date, "essay_thanks": essay.thanks, "content": essay.content, "content_length": content_len, "content_tokens": token_len, "embedding": embedding}).execute()
 

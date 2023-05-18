@@ -12,7 +12,7 @@ from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
 load_dotenv()
 
 class AzureDatalakeStorage:
-    def __init__(self, containername: str = "testcontainer"):
+    def __init__(self, containername: str = "data"):
         self.containername = containername
 
     def _initialize_storage_account(self):
@@ -38,10 +38,14 @@ class AzureDatalakeStorage:
             file_system_client = service_client.get_file_system_client(file_system=self.containername)
 
             # Get a directory client for the specified directory.
-            directory_client = file_system_client.get_directory_client(dirname)
+            directory_client = file_system_client.get_directory_client(dirname) 
 
+            # file_extension = os.path.splitext(filename)[1]
+            # u_name = str(uuid.uuid4())
+            u_filename = f'{filename}'
+            
             # Create a file in the specified directory.
-            file_client = directory_client.create_file(filename)
+            file_client = directory_client.create_file(u_filename)
 
             # Get the contents of the local file.
             file_contents = await local_file.read()
