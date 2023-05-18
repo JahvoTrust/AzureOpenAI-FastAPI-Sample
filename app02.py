@@ -207,6 +207,7 @@ def create_qa_url(url:str) -> RetrievalQA:
     texts = text_splitter.split_documents(data)
     # Create a vector store for text documents
     docsearch = Chroma.from_documents(texts, embeddings)
+    
 
     # Create a retrieval-based Q&A system
     qa = RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=docsearch.as_retriever(search_kwargs={"k": 1}))
