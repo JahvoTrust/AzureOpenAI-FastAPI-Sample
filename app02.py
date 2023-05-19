@@ -14,9 +14,11 @@ from langchain.agents import create_pandas_dataframe_agent
 import os
 import openai
 import pandas as pd
-from helper import AzureBlobStorage
+from helper import AzureBlobStorage, AzureDatalakeStorage
 from langchain.document_loaders import AzureBlobStorageFileLoader, SeleniumURLLoader, PyPDFLoader
 from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
+from supabase import create_client, Client
+import re
 
 load_dotenv()
 
@@ -34,6 +36,9 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
+url: str = os.getenv("SUPABASE_URL")
+key: str = os.getenv("SUPABASE_KEY")
+supabase: Client = create_client(url, key)
 
 @app.post("/fileupload/")
 async def file_upload(request: Request,file: UploadFile = File(...)):
@@ -96,7 +101,20 @@ async def read_root(request: Request):
     #     {"name": "Bob", "age": 30},
     # ]
     return templates.TemplateResponse("login.html",{"request": request})
-  
+
+
+@app.get("/db", response_class=HTMLResponse)
+async def read_root(request: Request):
+    context = [
+        {"name": "Alice", "age": 25},
+        {"name": "Bob", "age": 30},
+    ]
+    return templates.TemplateResponse("pdf_upload_db.html", {"request": request , "context": context})
+
+@app.post("/dbqna/")
+async def file_upload_db(request: Request,file: UploadFile = File(...)):
+    return templates.TemplateResponse("upload_result_db.html", {"request": request, "filename": file.filename})
+
 
 
 def create_qa(filename:str) -> RetrievalQA:
@@ -237,3 +255,29 @@ def get_qna(question: Question):
     answer = csv_global.run(question.question)
     return {"data": answer, "data_ko":answer}
 
+@app.post("/qnadb/")
+def get_qna(question: Question):
+    # 질문 임베딩 
+    print(question.question)
+    embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
+
+    embedding = embeddings.embed_query(question.question)
+    response = supabase.rpc("match_file", {"query_embedding": embedding, "match_threshold": 0.7, "match_count": 2}).execute()
+
+    contents = []
+
+    for i in range(len(response.data)):
+        contents.append(response.data[i]['content'])
+
+    text = ' '.join(contents)
+    new_text = re.sub(r"\s+|\n", " ", text)
+
+    header = """Answer the question truthfully using document, if unsure, say "잘 모르겠습니다"\n\nDocument:\n"""
+    prompt = header + new_text + "\n\n Q: " + question.question + "\n A: "
+
+    print(prompt)
+    completion = openai.Completion.create(deployment_id="text-davinci-003",
+                                        prompt=prompt, temperature=0, top_p=1.0, max_tokens=2000)
+    print(completion['choices'][0]['text'])
+    
+    return {"data": completion['choices'][0]['text']}
