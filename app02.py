@@ -86,6 +86,15 @@ async def urlembedding(request: Request,url: str = Form()):
     csv_global = create_qa_url(url)
     return templates.TemplateResponse("upload_result_url.html", {"request": request,"url": url})
 
+@app.post("/fileuploaddb/")
+async def file_upload(request: Request,file: UploadFile = File(...)):
+    storagehelper = AzureDatalakeStorage()
+    await storagehelper.upload_file_to_directory("pdf", file.filename,file)
+    
+    global db_global
+    db_global = create_qa_db(file.filename)
+    return templates.TemplateResponse("upload_result_db.html", {"request": request, "filename": file.filename})
+
 @app.get("/files", response_class=HTMLResponse)
 async def read_main(request: Request):
     context = [
@@ -236,6 +245,41 @@ def create_qa_url(url:str) -> RetrievalQA:
 
 # loader = PyPDFLoader("example_data/layout-parser-paper.pdf")
 # pages = loader.load_and_split()
+
+def create_qa_db(filename:str) -> RetrievalQA:
+    # Create a language model for Q&A
+    # llm = AzureOpenAI(deployment_name="text-davinci-003")
+
+    # Create embeddings for text documents
+    embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
+
+    loader = AzureBlobStorageFileLoader(conn_str=os.getenv("AZURE_STORAGE_CONNECTION_STRING"), container='data/pdf', blob_name=filename)
+
+    documents = loader.load()
+
+    # Split text documents into chunks 중지 시퀀스
+    text_splitter = CharacterTextSplitter.from_tiktoken_encoder(chunk_size=1000, chunk_overlap=0)
+    texts = text_splitter.split_documents(documents)
+
+    list_content = []
+    list_embedding = []
+
+    for i in range(len(texts)):
+        list_content.append(texts[i].page_content)
+        # embedding = openai.Embedding.create(deployment_id="text-embedding-ada-002", input=texts[i].page_content)
+        # list_embedding.append(embedding['data'][0]['embedding'])
+        embedding = embeddings.embed_query(texts[i].page_content)
+        list_embedding.append(embedding)
+
+    # list_content와 list_embedding을 사용하여 DataFrame 생성
+    df = pd.DataFrame(zip(list_content, list_embedding))
+    df.columns = ['content', 'embedding']
+
+    # supabase의 'file' 테이블에 데이터 삽입
+    for i in range(len(df)): 
+        response = supabase.table('file').insert({"name": filename, "content": df['content'][i], "embedding":df['embedding'][i]}).execute()
+
+    return response
 
 @app.post("/qna/")
 def get_qna(question: Question):
